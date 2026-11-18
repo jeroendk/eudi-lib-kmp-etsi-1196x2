@@ -399,6 +399,18 @@ public object EudiwIosTrust {
         )
         .nonCached(buildLocations(urls))
 
+    /** Explicit GBO demo profile: four CA lists, no EU certificate-profile claim. */
+    public fun cachedGboDemo(
+        urls: TrustListUrls,
+        ttlHours: Double,
+        verifyJwtSignature: VerifyJwtSignature,
+        loadLoTE: IosLoadLoTE,
+        directTrust: ValidateCertificateChainUsingDirectTrust<List<NSData>, NSData>,
+        pkix: ValidateCertificateChainUsingPKIX<List<NSData>, NSData>,
+    ): CachedTrustValidator = buildCached(
+        urls, ttlHours, verifyJwtSignature, loadLoTE.asLoadLoTE(), directTrust, pkix, SupportedLists.gboDemo(),
+    )
+
     private fun buildCached(
         urls: TrustListUrls,
         ttlHours: Double,
@@ -406,12 +418,13 @@ public object EudiwIosTrust {
         loadLoTE: LoadLoTE<String>,
         directTrust: ValidateCertificateChainUsingDirectTrust<List<NSData>, NSData>,
         pkix: ValidateCertificateChainUsingPKIX<List<NSData>, NSData>,
+        metadata: SupportedLists<LotEMeta<VerificationContext>> = buildSvcTypePerCtx(urls.mdlProviders),
     ): CachedTrustValidator {
         val scope = DisposableContainer()
         val validator = ProvisionTrustAnchorsFromLoTEs
             .eudiwIos(
                 loadLoTEAndPointers = buildLoadLoTEAndPointers(verifyJwtSignature, loadLoTE),
-                svcTypePerCtx = buildSvcTypePerCtx(urls.mdlProviders),
+                svcTypePerCtx = metadata,
                 directTrust = directTrust,
                 pkix = pkix,
             )

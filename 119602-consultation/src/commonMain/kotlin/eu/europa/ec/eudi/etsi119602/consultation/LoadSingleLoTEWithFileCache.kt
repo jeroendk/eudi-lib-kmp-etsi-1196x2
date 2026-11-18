@@ -78,6 +78,7 @@ public class LoadSingleLoTEWithFileCache internal constructor(
     private val fileCacheExpiration: Duration = 24.hours,
     private val ioDispatcher: CoroutineDispatcher = consultationPlatform().ioDispatcher,
     private val parseJwt: ParseJwt<JsonObject, ListOfTrustedEntitiesClaims> = ParseJwt(),
+    private val refreshInterval: Duration? = null,
 ) : LoadLoTE<String>,
     LoTEEventListener,
     LoTEFallbackProvider {
@@ -89,12 +90,14 @@ public class LoadSingleLoTEWithFileCache internal constructor(
         clock: Clock = Clock.System,
         fileCacheExpiration: Duration = 24.hours,
         ioDispatcher: CoroutineDispatcher = consultationPlatform().ioDispatcher,
+        refreshInterval: Duration? = null,
     ) : this(
         LoTEFileStore(cacheDirectory, fileSystem, ioDispatcher),
         downloadSingleLoTE,
         clock,
         fileCacheExpiration,
         ioDispatcher,
+        refreshInterval = refreshInterval,
     )
 
     private val mutex = Mutex()
@@ -220,10 +223,12 @@ public class LoadSingleLoTEWithFileCache internal constructor(
             }.getOrElse { null to null }
 
             // Calculate expiration time
-            val expiresAt = nextUpdate?.let {
+            val expiresAt = (nextUpdate?.let {
                 // Use nextUpdate if it's in the future
                 if (it > loadedAt) it else loadedAt + fileCacheExpiration
-            } ?: (loadedAt + fileCacheExpiration)
+            } ?: (loadedAt + fileCacheExpiration)).let { expiry ->
+                refreshInterval?.let { minOf(expiry, loadedAt + it) } ?: expiry
+            }
 
             return LoTEFileMetadata(
                 loadedAt = loadedAt,
